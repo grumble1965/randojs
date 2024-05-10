@@ -1,0 +1,300 @@
+<html>
+
+<head>
+    <title>US Weather in JS</title>
+</head>
+
+<body>
+    <div id="configDiv">
+        <hr>
+        Latitude: <input id="lat" name="lat" type="number" min="-90.0" max="90.0" step="any" value="48.1830" />
+        Longitude: <input id="long" name="long" type="number" min="-180.0" max="180.0" step="any" value="-117.0586" />
+        <input id="pointSearch" type="button" value="Find Nearest Station" onclick="pointSearch();" /> <br>
+        <div id="obsStationsDiv"></div>
+    </div>
+
+    <div id="obsDiv">
+        <hr>
+        <b>Observation:</b>
+        ObservationId: <input id="observationId" type="text" size="7" value="" />
+        <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
+        <div id="obsText"></div>
+    </div>
+    <div id="forecastDiv">
+        <hr>
+        <b>Forecast:</b>
+        GridId: <input id="gridId" type="text" size="5" value="" />
+        GridX: <input id="gridX" type="text" size="4" value="" />
+        GridY: <input id="gridY" type="text" size="4" value="" />
+        <input id="forecastFetch" type="button" value="Fetch Forecast" onclick="forecastFetch();" />
+        <div id="forecastText"></div>
+    </div>
+    <div id="alertsDiv">
+        <hr>
+        <b>Alerts:</b>
+        CountyId: <input id="countyId" type="text" size="7" value="" />
+        <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
+        <div id="alertText"></div>
+    </div>
+    <div id="radarDiv">
+        <hr>
+        <b>Radar:</b>
+        RadarId: <input id="radarId" type="text" size="7" value="" />
+        <input id="radarFetch" type="button" value="Fetch Radar Image" onclick="radarFetch();" />
+        <div id="radarImg"></div>
+    </div>
+    <p id="debug"></p>
+</body>
+<script type="text/javascript">
+    var wxConfig = {};
+    var stationNames = {};
+
+    function ctof(t) {
+        return (t * 9.0 / 5.0) + 32.0;
+    }
+
+    function ktom(d) {
+        return d * 0.6213712;
+    }
+
+    function windDirection(direction) {
+        if (direction > (315.0 + 1.0)) return "NNW";
+        if (direction > (292.5 + 1.0)) return "NW";
+        if (direction > (270.0 + 1.0)) return "WNW";
+        if (direction > (247.5 + 1.0)) return "W";
+        if (direction > (225.0 + 1.0)) return "WSW";
+        if (direction > (202.5 + 1.0)) return "SW";
+        if (direction > (180.0 + 1.0)) return "SSW";
+        if (direction > (157.5 + 1.0)) return "S";
+        if (direction > (135.0 + 1.0)) return "SSE";
+        if (direction > (112.5 + 1.0)) return "SE";
+        if (direction > (90.0 + 1.0)) return "ESE";
+        if (direction > (67.5 + 1.0)) return "E";
+        if (direction > (45.0 + 1.0)) return "ENE";
+        if (direction > (22.5 + 1.0)) return "NE";
+        if (direction > (0.0 + 1.0)) return "NNE";
+        return "N";
+    }
+
+    function saveConfig() {
+        for (const k in wxConfig) {
+            localStorage.setItem(k, wxConfig[k]);
+        }
+    }
+
+    function loadConfig() {
+        for (let kNum = 0; kNum < localStorage.length; kNum += 1) {
+            const key = localStorage.key(kNum);
+            wxConfig[key] = localStorage.getItem(key);
+        }
+        updateConfig();
+    }
+
+    function updateConfig() {
+        if ("gridId" in wxConfig) { document.getElementById('gridId').value = wxConfig.gridId; }
+        if ("gridX" in wxConfig) { document.getElementById('gridX').value = wxConfig.gridX; }
+        if ("gridY" in wxConfig) { document.getElementById('gridY').value = wxConfig.gridY; }
+        if ("observationId" in wxConfig) { document.getElementById('observationId').value = wxConfig.observationId; }
+        if ("radarId" in wxConfig) { document.getElementById('radarId').value = wxConfig.radarId; }
+        if ("countyId" in wxConfig) { document.getElementById('countyId').value = wxConfig.countyId; }
+    }
+
+    function myFetch(url) {
+        const myHeaders = new Headers();
+        myHeaders.append("UserAgent", "Weather.JS/1.0")
+        myHeaders.append("Accept", "application/geo+json");
+        const request = new Request(url, myHeaders);
+        return fetch(request);
+    }
+
+    async function pointSearch() {
+        const lat = parseFloat(document.getElementById("lat").value);
+        const long = parseFloat(document.getElementById("long").value);
+        const url = `https://api.weather.gov/points/${lat},${long}`;
+
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>point search failed - unsupported location</b>`;
+            return;
+        }
+
+        const json = await response.json();
+        wxConfig.latitude = json.properties.relativeLocation.geometry.coordinates[1];
+        wxConfig.longitude = json.properties.relativeLocation.geometry.coordinates[0];
+        wxConfig.gridId = json.properties.gridId;
+        wxConfig.gridX = json.properties.gridX;
+        wxConfig.gridY = json.properties.gridY;
+        wxConfig.radarId = json.properties.radarStation;
+        const tmpArray = json.properties.county.split("/");
+        wxConfig.countyId = tmpArray[tmpArray.length - 1];
+        updateConfig();
+        saveConfig();
+
+        fetchObservationStations(wxConfig.gridId, wxConfig.gridX, wxConfig.gridY);
+    }
+
+    function stationSelect() {
+        if (document.getElementById("obsStationSelect").value === "") {
+            return;
+        }
+
+        wxConfig.observationId = document.getElementById("obsStationSelect").value;
+        updateConfig();
+        saveConfig();
+    }
+
+    async function fetchObservationStations(gridId, gridX, gridY) {
+        const url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/stations`;
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>station search failed - unsupported location</b>`;
+            return;
+        }
+
+        const json = await response.json();
+        let result = `Observation stations: <select id="obsStationSelect" onchange="stationSelect();">`;
+        for (let station of json.features) {
+            result += `<option value="${station.properties.stationIdentifier}">${station.properties.name}</option>\n`;
+        }
+        result += "</select>";
+        document.getElementById("obsStationsDiv").innerHTML = result;
+    }
+
+    async function obsFetch() {
+        const observationId = document.getElementById("observationId").value;
+        if (observationId === "") {
+            document.getElementById('obsText').innerHTML = `ObservationId is required`;
+            return;
+        }
+
+        if (!(observationId in stationNames)) {
+            const url = `https://api.weather.gov/stations/${observationId}`;
+            const response = await myFetch(url);
+            if (!response.ok) {
+                document.getElementById('debug').innerHTML += `<p><b>station name fetch failed</b>`;
+            } else {
+                const json = await response.json();
+                stationNames[observationId] = json.properties.name;
+            }
+        }
+
+        const url = `https://api.weather.gov/stations/${observationId}/observations/latest`;
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>observation fetch failed</b>`;
+            services.observation.fetchTime = Date.now() - services.observation.refreshTime + 30 * 1000;
+            return;
+        }
+
+        const json = await response.json();
+        const obs = json.properties;
+        const ts = new Date(obs.timestamp);
+        const wind = obs.windSpeed.value;
+        const rh = Number(obs.relativeHumidity.value);
+        let text = `<table><tr>`;
+        text += `<td>${stationNames[observationId]}</td>`;
+        text += `<td>${ts.toLocaleString()}</td>`;
+        text += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
+        if (wind && wind > 0) {
+            text += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
+        } else {
+            text += "<td>Winds calm</td>";
+        }
+        text += `<td>Humidity ${rh.toFixed(0)}%</td>`;
+        // text += `<td>${JSON.stringify(obs)}</td>`;
+        text += `</tr></table>`;
+        document.getElementById('obsText').innerHTML = `${text}`;
+        services.observation.fetchObservationStations = Date.now();
+    }
+
+    async function forecastFetch() {
+        const gridId = document.getElementById("gridId").value;
+        const gridX = document.getElementById("gridX").value;
+        const gridY = document.getElementById("gridY").value;
+        if (gridId === "" || gridX === "" || gridX === "") {
+            document.getElementById('forecastText').innerHTML = `GridID, GridX, and GridY are required`;
+            return;
+        }
+
+        const url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/forecast`;
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>forecast fetch failed</b>`;
+            services.forecast.fetchTime = Date.now() - services.forecast.refreshTime + 30 * 1000;
+            return;
+        }
+
+        const json = await response.json();
+        let text = "<table>";
+        for (let i = 0; i < 2; i += 1) {
+            const fc = json.properties.periods[i];
+            const iconUrl = fc.icon.replace("=medium", "=small");
+            text += `<tr><td><img src="${iconUrl}"></td><td><b>${fc.name}</b></td> <td>${fc.detailedForecast}</td></tr>`;
+        }
+        text += "</table>"
+        document.getElementById('forecastText').innerHTML = `${text}`;
+        services.forecast.fetchTime = Date.now();
+    }
+
+    async function alertFetch() {
+        const countyId = document.getElementById("countyId").value;
+        if (countyId === "") {
+            document.getElementById('alertText').innerHTML = `CountyId is required`;
+            return;
+        }
+
+        let url = `https://api.weather.gov/alerts/active/zone/${countyId}`;
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>alert fetch failed</b>`;
+            services.alert.fetchTime = Date.now() - services.alert.refreshTime + 30 * 1000;
+            return;
+        }
+
+        const json = await response.json();
+        let text = "";
+        if (json.features.length == 0) {
+            text = "No alerts";
+        } else {
+            test = JSON.stringify(json);
+        }
+        document.getElementById('alertText').innerHTML = `${text}`;
+        services.alert.fetchTime = Date.now();
+    }
+
+    function radarFetch() {
+        const radarId = document.getElementById("radarId").value;
+        if (radarId === "") {
+            document.getElementById('radarImg').innerHTML = `RadarId is required`;
+            services.radar.fetchTime = Date.now() - services.radar.refreshTime + 30 * 1000;
+            return;
+        }
+
+        const url = `https://radar.weather.gov/ridge/standard/${radarId}_loop.gif`;
+        const ts = Date.now();
+        document.getElementById('radarImg').innerHTML = `<img src="${url}?t=${ts}">`;
+        services.radar.fetchTime = Date.now();
+    }
+
+    services = {
+        "observation": { method: obsFetch, refreshTime: 5 * 60 * 1000 },
+        "forecast": { method: forecastFetch, refreshTime: 5 * 60 * 1000 },
+        "alert": { method: alertFetch, refreshTime: 0.5 * 60 * 1000 },
+        "radar": { method: radarFetch, refreshTime: 2 * 60 * 1000 },
+    };
+
+    function fetchAll() {
+        for (const serv in services) {
+            const service = services[serv];
+            if (!("fetchTime" in service) || (Date.now() - service.fetchTime) > service.refreshTime) {
+                service.method();
+            }
+        }
+    }
+
+    const timer = setInterval(fetchAll, 1000);
+    loadConfig();
+
+</script>
+
+</html>
