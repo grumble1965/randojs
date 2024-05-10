@@ -10,6 +10,11 @@
         Latitude: <input id="lat" name="lat" type="number" min="-90.0" max="90.0" step="any" value="48.1830" />
         Longitude: <input id="long" name="long" type="number" min="-180.0" max="180.0" step="any" value="-117.0586" />
         <input id="pointSearch" type="button" value="Find Nearest Station" onclick="pointSearch();" /> <br>
+        Units:
+        <input id="imperial" name="unitRadio" type="radio" value="imperial" onchange="unitChange();">
+        <label for="imperial">US (imperial)</label>
+        <input id="metric" name="unitRadio" type="radio" value="metric" onchange="unitChange();">
+        <label for="metric">SI (metric)</label>
         <div id="obsStationsDiv"></div>
     </div>
 
@@ -97,6 +102,7 @@
         if ("observationId" in wxConfig) { document.getElementById('observationId').value = wxConfig.observationId; }
         if ("radarId" in wxConfig) { document.getElementById('radarId').value = wxConfig.radarId; }
         if ("countyId" in wxConfig) { document.getElementById('countyId').value = wxConfig.countyId; }
+        if ("units" in wxConfig) { document.getElementById(wxConfig.units).checked = true; }
     }
 
     function myFetch(url) {
@@ -141,6 +147,24 @@
         wxConfig.observationId = document.getElementById("obsStationSelect").value;
         updateConfig();
         saveConfig();
+    }
+
+    function unitChange() {
+        if (!document.getElementById("imperial").checked && !document.getElementById("metric").checked) {
+            document.getElementById('debug').innerHTML += `<p><b>unitRadio has no value</b>`;
+            return;
+        }
+
+        let newUnits = "imperial";
+        if (document.getElementById("metric").checked) newUnits = "metric";
+
+        if (!("units" in wxConfig) || newUnits !== wxConfig.units) {
+            wxConfig.units = newUnits;
+            updateConfig();
+            saveConfig();
+            services.observation.fetchTime = 0;
+            services.forecast.fetchTime = 0;
+        }
     }
 
     async function fetchObservationStations(gridId, gridX, gridY) {
@@ -194,9 +218,17 @@
         let text = `<table><tr>`;
         text += `<td>${stationNames[observationId]}</td>`;
         text += `<td>${ts.toLocaleString()}</td>`;
-        text += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
+        if (wxConfig.units === "imperial") {
+            text += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
+        } else {
+            text += `<td>Temp ${obs.temperature.value.toFixed(1)} C</td>`;
+        }
         if (wind && wind > 0) {
-            text += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
+            if (wxConfig.units === "imperial") {
+                text += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
+            } else {
+                text += `<td>Wind ${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
+            }
         } else {
             text += "<td>Winds calm</td>";
         }
@@ -216,7 +248,12 @@
             return;
         }
 
-        const url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/forecast`;
+
+        let url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/forecast`;
+        if ("units" in wxConfig && wxConfig.units === "metric") {
+            url += "?units=si";
+        }
+
         const response = await myFetch(url);
         if (!response.ok) {
             document.getElementById('debug').innerHTML += `<p><b>forecast fetch failed</b>`;
