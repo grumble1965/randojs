@@ -299,7 +299,7 @@
             for (let i = 0; i < json.features.length; i += 1) {
                 const p = json.features[i].properties;
                 const shortDesc = (p.description).split("\n\n")[0];
-                text += `<tr><td>${p.messageType}</td><td>${p.event}</td><td>${shortDesc}</td></tr>`;
+                text += `<tr><td><b>${p.messageType}</b<</td><td><i>${p.event}</i></td><td>${shortDesc}</td></tr>`;
             }
             text += "</table>";
         }
