@@ -92,6 +92,8 @@
             const key = localStorage.key(kNum);
             wxConfig[key] = localStorage.getItem(key);
         }
+
+        if (!("units" in wxConfig)) { wxConfig.units = "imperial"; }
         updateConfig();
     }
 
