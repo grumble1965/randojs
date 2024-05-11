@@ -295,7 +295,13 @@
         if (json.features.length == 0) {
             text = "No alerts";
         } else {
-            test = JSON.stringify(json);
+            text = "<table>";
+            for (let i = 0; i < json.features.length; i += 1) {
+                const p = json.features[i].properties;
+                const shortDesc = (p.description).split("\n\n")[0];
+                text += `<tr><td>${p.messageType}</td><td>${p.event}</td><td>${shortDesc}</td></tr>`;
+            }
+            text += "</table>";
         }
         document.getElementById('alertText').innerHTML = `${text}`;
         services.alert.fetchTime = Date.now();
