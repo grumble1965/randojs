@@ -1,6 +1,8 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8" />
     <title>US Weather in JS</title>
     <style>
         :root {
@@ -22,17 +24,16 @@
 </head>
 
 <body>
-
     <hr>
     <div id="obsDiv">
-        <b class="section">Observation:</b>
+        <b class="section">Observation:</b> &emsp;
         ObservationId: <input id="observationId" type="text" size="7" value="" />
         <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
         <div id="obsText"></div>
     </div>
     <hr>
     <div id="forecastDiv">
-        <b class="section">Forecast:</b>
+        <b class="section">Forecast:</b> &emsp;
         GridId: <input id="gridId" type="text" size="5" value="" />
         GridX: <input id="gridX" type="text" size="4" value="" />
         GridY: <input id="gridY" type="text" size="4" value="" />
@@ -41,14 +42,14 @@
     </div>
     <hr>
     <div id="alertsDiv">
-        <b class="section" id="alertBox">Alerts:</b>
+        <b class="section" id="alertBox">Alerts:</b> &emsp;
         CountyId: <input id="countyId" type="text" size="7" value="" />
         <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
         <div id="alertText"></div>
     </div>
     <hr>
     <div id="radarDiv">
-        <b class="section">Radar:</b>
+        <b class="section">Radar:</b> &emsp;
         RadarId: <input id="radarId" type="text" size="7" value="" />
         <input id="radarFetch" type="button" value="Fetch Radar Image" onclick="radarFetch();" />
         <div id="radarImg"></div>
@@ -68,6 +69,7 @@
     </div>
     <p id="debug"></p>
 </body>
+
 <script type="text/javascript">
     var wxConfig = {};
     var stationNames = {};
@@ -204,6 +206,24 @@
         document.getElementById("obsStationsDiv").innerHTML = result;
     }
 
+    function formatTime(ts) {
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+        const ds = days[ts.getDay()];
+        let hs = ts.getHours();
+        let ms = ts.getMinutes();
+        let ampms = "AM";
+        if (hs > 12) {
+            hs -= 12;
+            ampms = "PM";
+        } else if (hs == 0) {
+            hs = 12;
+        }
+
+        let result = `${ds} ${hs}:${ms}${ampms}`;
+        return result;
+    }
+
     async function obsFetch() {
         const observationId = document.getElementById("observationId").value;
         if (observationId === "") {
@@ -236,8 +256,8 @@
         const wind = obs.windSpeed.value;
         const rh = Number(obs.relativeHumidity.value);
         let text = `<table><tr>`;
-        text += `<td>${stationNames[observationId]}</td>`;
-        text += `<td>${ts.toLocaleString()}</td>`;
+        text += `<td>${stationNames[observationId]}:</td>`;
+        text += `<td>${formatTime(ts)}</td>`;
         if (wxConfig.units === "imperial") {
             text += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
         } else {
@@ -253,7 +273,6 @@
             text += "<td>Winds calm</td>";
         }
         text += `<td>Humidity ${rh.toFixed(0)}%</td>`;
-        // text += `<td>${JSON.stringify(obs)}</td>`;
         text += `</tr></table>`;
         document.getElementById('obsText').innerHTML = `${text}`;
         services.observation.fetchObservationStations = Date.now();
@@ -285,7 +304,9 @@
         for (let i = 0; i < 2; i += 1) {
             const fc = json.properties.periods[i];
             const iconUrl = fc.icon.replace("=medium", "=small");
-            text += `<tr><td><img src="${iconUrl}"></td><td><b>${fc.name}</b></td> <td>${fc.detailedForecast}</td></tr>`;
+            text += `<tr><td><img src="${iconUrl}"></td>`;
+            text += `<td><b>${fc.name}</b></td>`;
+            text += `<td>${fc.detailedForecast}</td></tr>`;
         }
         text += "</table>"
         document.getElementById('forecastText').innerHTML = `${text}`;
