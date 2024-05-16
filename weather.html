@@ -2,11 +2,60 @@
 
 <head>
     <title>US Weather in JS</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+
+        body {
+            background-color: light-dark(#ccc, #333);
+        }
+
+        b.section {
+            background-color: blue;
+        }
+
+        b.alert {
+            background-color: red;
+        }
+    </style>
 </head>
 
 <body>
+
+    <hr>
+    <div id="obsDiv">
+        <b class="section">Observation:</b>
+        ObservationId: <input id="observationId" type="text" size="7" value="" />
+        <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
+        <div id="obsText"></div>
+    </div>
+    <hr>
+    <div id="forecastDiv">
+        <b class="section">Forecast:</b>
+        GridId: <input id="gridId" type="text" size="5" value="" />
+        GridX: <input id="gridX" type="text" size="4" value="" />
+        GridY: <input id="gridY" type="text" size="4" value="" />
+        <input id="forecastFetch" type="button" value="Fetch Forecast" onclick="forecastFetch();" />
+        <div id="forecastText"></div>
+    </div>
+    <hr>
+    <div id="alertsDiv">
+        <b class="section" id="alertBox">Alerts:</b>
+        CountyId: <input id="countyId" type="text" size="7" value="" />
+        <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
+        <div id="alertText"></div>
+    </div>
+    <hr>
+    <div id="radarDiv">
+        <b class="section">Radar:</b>
+        RadarId: <input id="radarId" type="text" size="7" value="" />
+        <input id="radarFetch" type="button" value="Fetch Radar Image" onclick="radarFetch();" />
+        <div id="radarImg"></div>
+    </div>
     <div id="configDiv">
         <hr>
+        <div><b class="section">Configuration:</b></div>>
         Latitude: <input id="lat" name="lat" type="number" min="-90.0" max="90.0" step="any" value="48.1830" />
         Longitude: <input id="long" name="long" type="number" min="-180.0" max="180.0" step="any" value="-117.0586" />
         <input id="pointSearch" type="button" value="Find Nearest Station" onclick="pointSearch();" /> <br>
@@ -17,49 +66,18 @@
         <label for="metric">SI (metric)</label>
         <div id="obsStationsDiv"></div>
     </div>
-
-    <div id="obsDiv">
-        <hr>
-        <b>Observation:</b>
-        ObservationId: <input id="observationId" type="text" size="7" value="" />
-        <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
-        <div id="obsText"></div>
-    </div>
-    <div id="forecastDiv">
-        <hr>
-        <b>Forecast:</b>
-        GridId: <input id="gridId" type="text" size="5" value="" />
-        GridX: <input id="gridX" type="text" size="4" value="" />
-        GridY: <input id="gridY" type="text" size="4" value="" />
-        <input id="forecastFetch" type="button" value="Fetch Forecast" onclick="forecastFetch();" />
-        <div id="forecastText"></div>
-    </div>
-    <div id="alertsDiv">
-        <hr>
-        <b>Alerts:</b>
-        CountyId: <input id="countyId" type="text" size="7" value="" />
-        <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
-        <div id="alertText"></div>
-    </div>
-    <div id="radarDiv">
-        <hr>
-        <b>Radar:</b>
-        RadarId: <input id="radarId" type="text" size="7" value="" />
-        <input id="radarFetch" type="button" value="Fetch Radar Image" onclick="radarFetch();" />
-        <div id="radarImg"></div>
-    </div>
     <p id="debug"></p>
 </body>
 <script type="text/javascript">
     var wxConfig = {};
     var stationNames = {};
 
-    function ctof(t) {
-        return (t * 9.0 / 5.0) + 32.0;
+    function ctof(temperature) {
+        return (temperature * 9.0 / 5.0) + 32.0;
     }
 
-    function ktom(d) {
-        return d * 0.6213712;
+    function ktom(distance) {
+        return distance * 0.6213712;
     }
 
     function windDirection(direction) {
@@ -250,7 +268,6 @@
             return;
         }
 
-
         let url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/forecast`;
         if ("units" in wxConfig && wxConfig.units === "metric") {
             url += "?units=si";
@@ -294,6 +311,7 @@
         let text = "";
         if (json.features.length == 0) {
             text = "No alerts";
+            document.getElementById("alertBox").className = "section";
         } else {
             text = "<table>";
             for (let i = 0; i < json.features.length; i += 1) {
@@ -302,6 +320,7 @@
                 text += `<tr><td><b>${p.messageType}</b<</td><td><i>${p.event}</i></td><td>${shortDesc}</td></tr>`;
             }
             text += "</table>";
+            document.getElementById("alertBox").className = "alert";
         }
         document.getElementById('alertText').innerHTML = `${text}`;
         services.alert.fetchTime = Date.now();
@@ -339,7 +358,6 @@
 
     const timer = setInterval(fetchAll, 1000);
     loadConfig();
-
 </script>
 
 </html>
