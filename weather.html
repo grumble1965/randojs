@@ -15,10 +15,19 @@
 
         b.section {
             background-color: blue;
+            color: light-dark(white, white);
         }
 
         b.alert {
             background-color: red;
+            color: black;
+        }
+
+        img.center {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            /* width: 50%; */
         }
     </style>
 </head>
@@ -357,22 +366,26 @@
 
         const url = `https://radar.weather.gov/ridge/standard/${radarId}_loop.gif`;
         const ts = Date.now();
-        document.getElementById('radarImg').innerHTML = `<img src="${url}?t=${ts}">`;
+        document.getElementById('radarImg').innerHTML = `<img class="center" src="${url}?t=${ts}">`;
         services.radar.fetchTime = Date.now();
     }
 
+    function minutes(min) {
+        return min * 60 * 1000;
+    }
+
     services = {
-        "observation": { method: obsFetch, refreshTime: 5 * 60 * 1000 },
-        "forecast": { method: forecastFetch, refreshTime: 5 * 60 * 1000 },
-        "alert": { method: alertFetch, refreshTime: 0.5 * 60 * 1000 },
-        "radar": { method: radarFetch, refreshTime: 2 * 60 * 1000 },
+        "observation": { refresh: obsFetch, refreshTime: minutes(5) },
+        "forecast": { refresh: forecastFetch, refreshTime: minutes(5) },
+        "alert": { refresh: alertFetch, refreshTime: minutes(0.5) },
+        "radar": { refresh: radarFetch, refreshTime: minutes(2.1) },
     };
 
     function fetchAll() {
         for (const serv in services) {
             const service = services[serv];
             if (!("fetchTime" in service) || (Date.now() - service.fetchTime) > service.refreshTime) {
-                service.method();
+                service.refresh();
             }
         }
     }
