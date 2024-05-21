@@ -20,7 +20,7 @@
 
         b.alert {
             background-color: red;
-            color: black;
+            color: #333;
         }
 
         img.center {
@@ -217,10 +217,9 @@
 
     function formatTime(ts) {
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
         const ds = days[ts.getDay()];
+
         let hs = ts.getHours();
-        let ms = ts.getMinutes();
         let ampms = "AM";
         if (hs > 12) {
             hs -= 12;
@@ -228,6 +227,8 @@
         } else if (hs == 0) {
             hs = 12;
         }
+
+        let ms = ('00' + ts.getMinutes()).slice(-2);
 
         let result = `${ds} ${hs}:${ms}${ampms}`;
         return result;
