@@ -36,7 +36,7 @@
     <hr>
     <div id="obsDiv">
         <b class="section">Observation:</b> &emsp;
-        ObservationId: <input id="observationId" type="text" size="12" value="" />
+        ObservationId: <input id="observationId" type="text" size="12" value="" onchange="saveObs();" />
         <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
         <div id="obsText"></div>
     </div>
@@ -52,14 +52,14 @@
     <hr>
     <div id="alertsDiv">
         <b class="section" id="alertBox">Alerts:</b> &emsp;
-        CountyId: <input id="countyId" type="text" size="13" value="" />
+        CountyId: <input id="countyId" type="text" size="13" value="" onchange="saveAlert();" />
         <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
         <div id="alertText"></div>
     </div>
     <hr>
     <div id="radarDiv">
         <b class="section">Radar:</b> &emsp;
-        RadarId: <input id="radarId" type="text" size="7" value="" />
+        RadarId: <input id="radarId" type="text" size="7" value="" onchange="saveRadar();" />
         <input id="radarFetch" type="button" value="Fetch Radar Image" onclick="radarFetch();" />
         <div id="radarImg"></div>
     </div>
@@ -110,6 +110,21 @@
         return "N";
     }
 
+    function saveObs() {
+        wxConfig.observationId = document.getElementById('observationId').value;
+        saveConfig();
+    }
+
+    function saveAlert() {
+        wxConfig.countyId = document.getElementById('countyId').value;
+        saveConfig();
+    }
+
+    function saveRadar() {
+        wxConfig.radarId = document.getElementById('radarId').value;
+        saveConfig();
+    }
+
     function saveConfig() {
         for (const k in wxConfig) {
             localStorage.setItem(k, wxConfig[k]);
@@ -140,6 +155,7 @@
         const myHeaders = new Headers();
         myHeaders.append("UserAgent", "Weather.JS/1.0")
         myHeaders.append("Accept", "application/geo+json");
+        myHeaders.append("Access-Control-Allow-Origin", "*")
         const request = new Request(url, myHeaders);
         return fetch(request);
     }
@@ -348,7 +364,7 @@
         const json = await response.json();
         const countyName = json.title.split(' for ')[1];
 
-        result += `<tr><td>${countyName}</td>`;
+        result += `<tr><td>${countyName}:</td>`;
 
         if (json.features.length == 0) {
             result += "<td>No alerts</td>";
