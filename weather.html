@@ -36,7 +36,7 @@
     <hr>
     <div id="obsDiv">
         <b class="section">Observation:</b> &emsp;
-        ObservationId: <input id="observationId" type="text" size="7" value="" />
+        ObservationId: <input id="observationId" type="text" size="12" value="" />
         <input id="obsFetch" type="button" value="Fetch Observation" onclick="obsFetch();" />
         <div id="obsText"></div>
     </div>
@@ -52,7 +52,7 @@
     <hr>
     <div id="alertsDiv">
         <b class="section" id="alertBox">Alerts:</b> &emsp;
-        CountyId: <input id="countyId" type="text" size="7" value="" />
+        CountyId: <input id="countyId" type="text" size="13" value="" />
         <input id="alertFetch" type="button" value="Fetch Alerts" onclick="alertFetch();" />
         <div id="alertText"></div>
     </div>
@@ -234,12 +234,8 @@
         return result;
     }
 
-    async function obsFetch() {
-        const observationId = document.getElementById("observationId").value;
-        if (observationId === "") {
-            document.getElementById('obsText').innerHTML = `ObservationId is required`;
-            return;
-        }
+    async function stationObsFetch(observationId) {
+        let result = "";
 
         if (!(observationId in stationNames)) {
             const url = `https://api.weather.gov/stations/${observationId}`;
@@ -257,7 +253,7 @@
         if (!response.ok) {
             document.getElementById('debug').innerHTML += `<p><b>observation fetch failed</b>`;
             services.observation.fetchTime = Date.now() - services.observation.refreshTime + 30 * 1000;
-            return;
+            return result;
         }
 
         const json = await response.json();
@@ -265,25 +261,40 @@
         const ts = new Date(obs.timestamp);
         const wind = obs.windSpeed.value;
         const rh = Number(obs.relativeHumidity.value);
-        let text = `<table><tr>`;
-        text += `<td>${stationNames[observationId]}:</td>`;
-        text += `<td>${formatTime(ts)}</td>`;
+        result += `<tr><td>${stationNames[observationId]}:</td>`;
+        result += `<td>${formatTime(ts)}</td>`;
         if (wxConfig.units === "imperial") {
-            text += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
+            result += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
         } else {
-            text += `<td>Temp ${obs.temperature.value.toFixed(1)} C</td>`;
+            result += `<td>Temp ${obs.temperature.value.toFixed(1)} C</td>`;
         }
         if (wind && wind > 0) {
             if (wxConfig.units === "imperial") {
-                text += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
+                result += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
             } else {
-                text += `<td>Wind ${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
+                result += `<td>Wind ${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
             }
         } else {
-            text += "<td>Winds calm</td>";
+            result += "<td>Winds calm</td>";
         }
-        text += `<td>Humidity ${rh.toFixed(0)}%</td>`;
-        text += `</tr></table>`;
+        result += `<td>Humidity ${rh.toFixed(0)}%</td></tr>`;
+        return result;
+    }
+
+    async function obsFetch() {
+        const observationId = document.getElementById("observationId").value;
+        if (observationId === "") {
+            document.getElementById('obsText').innerHTML = `ObservationId is required`;
+            return;
+        }
+
+        let text = `<table>`;
+        stationList = observationId.split(',');
+        for (let i = 0; i < stationList.length; i += 1) {
+            const station = stationList[i].trim();
+            text += await stationObsFetch(station);
+        }
+        text += `</table>`;
         document.getElementById('obsText').innerHTML = `${text}`;
         services.observation.fetchObservationStations = Date.now();
     }
@@ -323,6 +334,37 @@
         services.forecast.fetchTime = Date.now();
     }
 
+    async function countyAlertFetch(countyId) {
+        let result = "";
+
+        let url = `https://api.weather.gov/alerts/active/zone/${countyId}`;
+        const response = await myFetch(url);
+        if (!response.ok) {
+            document.getElementById('debug').innerHTML += `<p><b>alert fetch failed</b>`;
+            services.alert.fetchTime = Date.now() - services.alert.refreshTime + 30 * 1000;
+            return result;
+        }
+
+        const json = await response.json();
+        const countyName = json.title.split(' for ')[1];
+
+        result += `<tr><td>${countyName}</td>`;
+
+        if (json.features.length == 0) {
+            result += "<td>No alerts</td>";
+            document.getElementById("alertBox").className = "section";
+        } else {
+            for (let i = 0; i < json.features.length; i += 1) {
+                const p = json.features[i].properties;
+                const shortDesc = (p.description).split("\n\n")[0];
+                result += `<td><b>${p.messageType}</b<</td><td><i>${p.event}</i></td><td>${shortDesc}</td>`;
+            }
+            document.getElementById("alertBox").className = "alert";
+        }
+        result += `</tr>`;
+        return result;
+    }
+
     async function alertFetch() {
         const countyId = document.getElementById("countyId").value;
         if (countyId === "") {
@@ -330,29 +372,15 @@
             return;
         }
 
-        let url = `https://api.weather.gov/alerts/active/zone/${countyId}`;
-        const response = await myFetch(url);
-        if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>alert fetch failed</b>`;
-            services.alert.fetchTime = Date.now() - services.alert.refreshTime + 30 * 1000;
-            return;
+        let text = "<table>";
+
+        countyList = countyId.split(',');
+        for (let i = 0; i < countyList.length; i += 1) {
+            const county = countyList[i].trim();
+            text += await countyAlertFetch(county);
         }
 
-        const json = await response.json();
-        let text = "";
-        if (json.features.length == 0) {
-            text = "No alerts";
-            document.getElementById("alertBox").className = "section";
-        } else {
-            text = "<table>";
-            for (let i = 0; i < json.features.length; i += 1) {
-                const p = json.features[i].properties;
-                const shortDesc = (p.description).split("\n\n")[0];
-                text += `<tr><td><b>${p.messageType}</b<</td><td><i>${p.event}</i></td><td>${shortDesc}</td></tr>`;
-            }
-            text += "</table>";
-            document.getElementById("alertBox").className = "alert";
-        }
+        text += "</table>";
         document.getElementById('alertText').innerHTML = `${text}`;
         services.alert.fetchTime = Date.now();
     }
