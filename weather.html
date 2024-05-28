@@ -13,9 +13,17 @@
             background-color: light-dark(#ccc, #333);
         }
 
+        table {
+            border-spacing: 15px 3px;
+        }
+
+        td {
+            text-align: center;
+        }
+
         b.section {
             background-color: blue;
-            color: light-dark(white, white);
+            color: white;
         }
 
         b.alert {
@@ -232,7 +240,7 @@
     }
 
     function formatTime(ts) {
-        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const ds = days[ts.getDay()];
 
         let hs = ts.getHours();
@@ -277,23 +285,23 @@
         const ts = new Date(obs.timestamp);
         const wind = obs.windSpeed.value;
         const rh = Number(obs.relativeHumidity.value);
-        result += `<tr><td>${stationNames[observationId]}:</td>`;
+        result += `<tr><td>${stationNames[observationId]}</td>`;
         result += `<td>${formatTime(ts)}</td>`;
         if (wxConfig.units === "imperial") {
-            result += `<td>Temp ${ctof(obs.temperature.value).toFixed(1)} F</td>`;
+            result += `<td>${ctof(obs.temperature.value).toFixed(1)} F</td>`;
         } else {
-            result += `<td>Temp ${obs.temperature.value.toFixed(1)} C</td>`;
+            result += `<td>${obs.temperature.value.toFixed(1)} C</td>`;
         }
         if (wind && wind > 0) {
             if (wxConfig.units === "imperial") {
-                result += `<td>Wind ${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
+                result += `<td>${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
             } else {
-                result += `<td>Wind ${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
+                result += `<td>${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
             }
         } else {
-            result += "<td>Winds calm</td>";
+            result += "<td>calm</td>";
         }
-        result += `<td>Humidity ${rh.toFixed(0)}%</td></tr>`;
+        result += `<td>${rh.toFixed(0)}%</td></tr>`;
         return result;
     }
 
@@ -305,6 +313,7 @@
         }
 
         let text = `<table>`;
+        text += `<tr><th>Site</th><th>Time</th><th>Temp</th><th>Wind</th><th>Humidity</th></tr>`;
         stationList = observationId.split(',');
         for (let i = 0; i < stationList.length; i += 1) {
             const station = stationList[i].trim();
@@ -343,7 +352,7 @@
             const iconUrl = fc.icon.replace("=medium", "=small");
             text += `<tr><td><img src="${iconUrl}"></td>`;
             text += `<td><b>${fc.name}</b></td>`;
-            text += `<td>${fc.detailedForecast}</td></tr>`;
+            text += `<td style="text-align:left;">${fc.detailedForecast}</td></tr>`;
         }
         text += "</table>"
         document.getElementById('forecastText').innerHTML = `${text}`;
@@ -362,22 +371,19 @@
         }
 
         const json = await response.json();
-        const countyName = json.title.split(' for ')[1];
-
-        result += `<tr><td>${countyName}:</td>`;
+        const countyName = json.title.split(' for ')[1].split('County')[0].trim();
 
         if (json.features.length == 0) {
-            result += "<td>No alerts</td>";
+            result += `<tr><td style="text-align:right;">${countyName}:</td><td style="text-align:left;">No alerts</td></tr>`;
             document.getElementById("alertBox").className = "section";
         } else {
             for (let i = 0; i < json.features.length; i += 1) {
                 const p = json.features[i].properties;
                 const shortDesc = (p.description).split("\n\n")[0];
-                result += `<td><b>${p.messageType}</b<</td><td><i>${p.event}</i></td><td>${shortDesc}</td>`;
+                result += `<tr><td style="text-align:right;">${countyName}:</td><td><b>${p.messageType}</b></td><td><i>${p.event}</i></td><td style="text-align:left;">${shortDesc}</td></tr>`;
             }
             document.getElementById("alertBox").className = "alert";
         }
-        result += `</tr>`;
         return result;
     }
 
@@ -422,8 +428,8 @@
     services = {
         "observation": { refresh: obsFetch, refreshTime: minutes(5) },
         "forecast": { refresh: forecastFetch, refreshTime: minutes(5) },
-        "alert": { refresh: alertFetch, refreshTime: minutes(0.5) },
-        "radar": { refresh: radarFetch, refreshTime: minutes(2.1) },
+        "alert": { refresh: alertFetch, refreshTime: minutes(2) },
+        "radar": { refresh: radarFetch, refreshTime: minutes(6.1) },
     };
 
     function fetchAll() {
