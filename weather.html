@@ -315,8 +315,8 @@
         let text = `<table>`;
         text += `<tr><th>Site</th><th>Time</th><th>Temp</th><th>Wind</th><th>Humidity</th></tr>`;
         stationList = observationId.split(',');
-        for (let i = 0; i < stationList.length; i += 1) {
-            const station = stationList[i].trim();
+        for (const rawStation of stationList) {
+            const station = rawStation.trim();
             text += await stationObsFetch(station);
         }
         text += `</table>`;
@@ -360,7 +360,7 @@
     }
 
     async function countyAlertFetch(countyId) {
-        let result = "";
+        let rows = {};
 
         let url = `https://api.weather.gov/alerts/active/zone/${countyId}`;
         const response = await myFetch(url);
@@ -374,17 +374,19 @@
         const countyName = json.title.split(' for ')[1].split('County')[0].trim();
 
         if (json.features.length == 0) {
-            result += `<tr><td style="text-align:right;">${countyName}:</td><td style="text-align:left;">No alerts</td></tr>`;
+            rows['none'] = `<tr><td style="text-align:right;">${countyName}:</td><td style="text-align:left;">No alerts</td></tr>`;
             document.getElementById("alertBox").className = "section";
         } else {
-            for (let i = 0; i < json.features.length; i += 1) {
-                const p = json.features[i].properties;
-                const shortDesc = (p.description).split("\n\n")[0];
-                result += `<tr><td style="text-align:right;">${countyName}:</td><td><b>${p.messageType}</b></td><td><i>${p.event}</i></td><td style="text-align:left;">${shortDesc}</td></tr>`;
+            for (const feature of json.features) {
+                const p = feature.properties;
+                const shortDesc = (p.description).split("\n\n")[0];  // summary paragraph
+                const longDesc = (p.description).split("\n\n")[3];   // WHAT: paragraph
+                let description = (shortDesc.length < 10) ? longDesc : shortDesc;
+                rows[p.id] = `<tr><td style="text-align:right;">${countyName}:</td><td><b>${p.messageType}</b></td><td><i>${p.event}</i></td><td style="text-align:left;">${description}</td></tr>`;
             }
             document.getElementById("alertBox").className = "alert";
         }
-        return result;
+        return rows;
     }
 
     async function alertFetch() {
@@ -396,12 +398,26 @@
 
         let text = "<table>";
 
+        let alerts = {};            // maps alertId -> alert table row
         countyList = countyId.split(',');
-        for (let i = 0; i < countyList.length; i += 1) {
-            const county = countyList[i].trim();
-            text += await countyAlertFetch(county);
+        for (const rawCounty of countyList) {
+            const county = rawCounty.trim();
+            const rows = await countyAlertFetch(county);
+            for (const rowId in rows) {
+                if (rowId in alerts) {
+                    // <td>county:</td>  -->  <td>county*:</td>
+                    let oldAlert = alerts[rowId]
+                    const newAlert = oldAlert.replace(":</td>", "*:</td>");
+                    alerts[rowId] = newAlert;
+                } else {
+                    alerts[rowId] = rows[rowId];
+                }
+            }
         }
 
+        for (const alertId in alerts) {
+            text += alerts[alertId];
+        }
         text += "</table>";
         document.getElementById('alertText').innerHTML = `${text}`;
         services.alert.fetchTime = Date.now();
