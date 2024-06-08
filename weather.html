@@ -244,14 +244,12 @@
         const ds = days[ts.getDay()];
 
         let hs = ts.getHours();
-        let ampms = "AM";
+        const ampms = hs >= 12 ? "PM" : "AM";
         if (hs > 12) {
             hs -= 12;
-            ampms = "PM";
         } else if (hs == 0) {
             hs = 12;
         }
-
         let ms = ('00' + ts.getMinutes()).slice(-2);
 
         let result = `${ds} ${hs}:${ms}${ampms}`;
