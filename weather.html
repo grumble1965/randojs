@@ -140,6 +140,15 @@
     }
 
     function loadConfig() {
+        try {
+            const text = "__text__";
+            localStorage.setItem(x, x);
+            localStorage.removeItem(x);
+        } catch (e) {
+            localStorage.clear();
+            sessionStorage.clear();
+        }
+
         for (let kNum = 0; kNum < localStorage.length; kNum += 1) {
             const key = localStorage.key(kNum);
             wxConfig[key] = localStorage.getItem(key);
@@ -156,7 +165,12 @@
         if ("observationId" in wxConfig) { document.getElementById('observationId').value = wxConfig.observationId; }
         if ("radarId" in wxConfig) { document.getElementById('radarId').value = wxConfig.radarId; }
         if ("countyId" in wxConfig) { document.getElementById('countyId').value = wxConfig.countyId; }
-        if ("units" in wxConfig) { document.getElementById(wxConfig.units).checked = true; }
+
+        if (wxConfig.units == "imperial") {
+            document.getElementById('imperial').checked = true;
+        } else if (wxConfig.units == "metric") {
+            document.getElementById('metric').checked = true;
+        }
     }
 
     function myFetch(url) {
@@ -210,8 +224,9 @@
             return;
         }
 
-        let newUnits = "imperial";
-        if (document.getElementById("metric").checked) newUnits = "metric";
+        if (document.getElementById("imperial").checked) newUnits = "imperial";
+        else if (document.getElementById("metric").checked) newUnits = "metric";
+        else document.getElementById('debug').innerHTML += `<p><b>neither unitRadio button is selected!</b>`;
 
         if (!("units" in wxConfig) || newUnits !== wxConfig.units) {
             wxConfig.units = newUnits;
@@ -347,7 +362,10 @@
         let text = "<table>";
         for (let i = 0; i < 2; i += 1) {
             const fc = json.properties.periods[i];
-            const iconUrl = fc.icon.replace("=medium", "=small");
+            let iconUrl = fc.icon.replace("=medium", "=small");
+            if (iconUrl.startsWith("/")) {
+                iconUrl = "https://api.weather.gov" + iconUrl;
+            }
             text += `<tr><td><img src="${iconUrl}"></td>`;
             text += `<td><b>${fc.name}</b></td>`;
             text += `<td style="text-align:left;">${fc.detailedForecast}</td></tr>`;
