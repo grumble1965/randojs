@@ -90,6 +90,7 @@
 <script type="text/javascript">
     var wxConfig = {};
     var stationNames = {};
+    const numberOfForecasts = 2;
 
     function ctof(temperature) {
         return (temperature * 9.0 / 5.0) + 32.0;
@@ -254,7 +255,8 @@
         document.getElementById("obsStationsDiv").innerHTML = result;
     }
 
-    function formatTime(ts) {
+    function formatTime(times) {
+        const ts = new Date(times);
         const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const ds = days[ts.getDay()];
 
@@ -269,6 +271,47 @@
 
         let result = `${ds} ${hs}:${ms}${ampms}`;
         return result;
+    }
+
+    function formatRelativeHumidity(rh) {
+        let res = "";
+        if (rh.value === null) {
+            res = "n/a";
+        } else {
+            let val = Number(rh.value).toFixed(0);
+            res = `${val}%`;
+        }
+        return res;
+    }
+
+    function formatTemperature(t) {
+        let res = "";
+        if (t.value === null) {
+            res = "n/a";
+        } else if (wxConfig.units === "imperial") {
+            res = `${ctof(t.value).toFixed(1)} F`;
+        } else {
+            res = `${(t.value).toFixed(1)} C`;
+        }
+        return res;
+    }
+
+    function formatWind(windSpeed, windDir) {
+        let res = "";
+        const wind = windSpeed.value;
+        if (wind.value === null) {
+            res = "n/a";
+        } else if (wind.value === 0) {
+            res = "calm";
+        } else {
+            res = `${windDirection(windDir.value)} `;
+            if (wxConfig.units === "imperial") {
+                res += `${ktom(windSpeed.value).toFixed(1)} mph`;
+            } else {
+                res += `${windSpeed.value.toFixed(1)} km/h`;
+            }
+        }
+        return res;
     }
 
     async function stationObsFetch(observationId) {
@@ -295,26 +338,11 @@
 
         const json = await response.json();
         const obs = json.properties;
-        const ts = new Date(obs.timestamp);
-        const wind = obs.windSpeed.value;
-        const rh = Number(obs.relativeHumidity.value);
         result += `<tr><td>${stationNames[observationId]}</td>`;
-        result += `<td>${formatTime(ts)}</td>`;
-        if (wxConfig.units === "imperial") {
-            result += `<td>${ctof(obs.temperature.value).toFixed(1)} F</td>`;
-        } else {
-            result += `<td>${obs.temperature.value.toFixed(1)} C</td>`;
-        }
-        if (wind && wind > 0) {
-            if (wxConfig.units === "imperial") {
-                result += `<td>${windDirection(obs.windDirection.value)} ${ktom(obs.windSpeed.value).toFixed(1)} mph</td>`;
-            } else {
-                result += `<td>${windDirection(obs.windDirection.value)} ${obs.windSpeed.value.toFixed(1)} km/h</td>`;
-            }
-        } else {
-            result += "<td>calm</td>";
-        }
-        result += `<td>${rh.toFixed(0)}%</td></tr>`;
+        result += `<td>${formatTime(obs.timestamp)}</td>`;
+        result += `<td>${formatTemperature(obs.temperature)}</td>`;
+        result += `<td>${formatWind(obs.windSpeed, obs.windDirection)}</td>`;
+        result += `<td>${formatRelativeHumidity(obs.relativeHumidity)}</td></tr>`;
         return result;
     }
 
@@ -360,7 +388,7 @@
 
         const json = await response.json();
         let text = "<table>";
-        for (let i = 0; i < 2; i += 1) {
+        for (let i = 0; i < numberOfForecasts; i += 1) {
             const fc = json.properties.periods[i];
             let iconUrl = fc.icon.replace("=medium", "=small");
             if (iconUrl.startsWith("/")) {
