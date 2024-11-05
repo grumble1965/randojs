@@ -88,9 +88,12 @@
 </body>
 
 <script type="text/javascript">
+    const Debug = false;
+
     var wxConfig = {};
     var stationNames = {};
     const numberOfForecasts = 2;
+    const staleThreshold = 60 * 60 * 2;  // two hours, in seconds
 
     function ctof(temperature) {
         return (temperature * 9.0 / 5.0) + 32.0;
@@ -117,6 +120,13 @@
         if (direction > (22.5 + 1.0)) return "NE";
         if (direction > (0.0 + 1.0)) return "NNE";
         return "N";
+    }
+
+    function logError(message) {
+        if (Debug) {
+            line = `<p><b>` + message + `</b>`;
+            document.getElementById('debug').innerHTML += `<p><b>point search failed - unsupported location</b>`;
+        }
     }
 
     function saveObs() {
@@ -190,7 +200,7 @@
 
         const response = await myFetch(url);
         if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>point search failed - unsupported location</b>`;
+            logError("point search failed - unsupported location");
             return;
         }
 
@@ -221,13 +231,13 @@
 
     function unitChange() {
         if (!document.getElementById("imperial").checked && !document.getElementById("metric").checked) {
-            document.getElementById('debug').innerHTML += `<p><b>unitRadio has no value</b>`;
+            logError("unitRadio has no value");
             return;
         }
 
         if (document.getElementById("imperial").checked) newUnits = "imperial";
         else if (document.getElementById("metric").checked) newUnits = "metric";
-        else document.getElementById('debug').innerHTML += `<p><b>neither unitRadio button is selected!</b>`;
+        else logError("neither unitRadio button is selected!");
 
         if (!("units" in wxConfig) || newUnits !== wxConfig.units) {
             wxConfig.units = newUnits;
@@ -242,7 +252,7 @@
         const url = `https://api.weather.gov/gridpoints/${gridId}/${gridX},${gridY}/stations`;
         const response = await myFetch(url);
         if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>station search failed - unsupported location</b>`;
+            logError("station search failed - unsupported location");
             return;
         }
 
@@ -314,6 +324,12 @@
         return res;
     }
 
+    function isObsStale(times) {
+        const ts = new Date(times);
+        const diff = (Date.now() - ts) / 1000;
+        return diff > staleThreshold;
+    }
+
     async function stationObsFetch(observationId) {
         let result = "";
 
@@ -321,7 +337,7 @@
             const url = `https://api.weather.gov/stations/${observationId}`;
             const response = await myFetch(url);
             if (!response.ok) {
-                document.getElementById('debug').innerHTML += `<p><b>station name fetch failed</b>`;
+                logError("station name fetch failed");
             } else {
                 const json = await response.json();
                 stationNames[observationId] = json.properties.name;
@@ -331,14 +347,20 @@
         const url = `https://api.weather.gov/stations/${observationId}/observations/latest`;
         const response = await myFetch(url);
         if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>observation fetch failed</b>`;
+            logError("observation fetch failed");
             services.observation.fetchTime = Date.now() - services.observation.refreshTime + 30 * 1000;
             return result;
         }
 
         const json = await response.json();
         const obs = json.properties;
-        result += `<tr><td>${stationNames[observationId]}</td>`;
+
+        if (isObsStale(obs.timestamp)) {
+            result += `<tr style="text-decoration-line: line-through">`
+        } else {
+            result += `<tr>`            
+        }
+        result += `<td>${stationNames[observationId]}</td>`;
         result += `<td>${formatTime(obs.timestamp)}</td>`;
         result += `<td>${formatTemperature(obs.temperature)}</td>`;
         result += `<td>${formatWind(obs.windSpeed, obs.windDirection)}</td>`;
@@ -381,7 +403,7 @@
 
         const response = await myFetch(url);
         if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>forecast fetch failed</b>`;
+            logError("forecast fetch failed");
             services.forecast.fetchTime = Date.now() - services.forecast.refreshTime + 30 * 1000;
             return;
         }
@@ -409,7 +431,7 @@
         let url = `https://api.weather.gov/alerts/active/zone/${countyId}`;
         const response = await myFetch(url);
         if (!response.ok) {
-            document.getElementById('debug').innerHTML += `<p><b>alert fetch failed</b>`;
+            logError("alert fetch failed");
             services.alert.fetchTime = Date.now() - services.alert.refreshTime + 30 * 1000;
             return result;
         }
